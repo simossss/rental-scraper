@@ -1,0 +1,161 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model SourceWebsite {
+  id        Int        @id @default(autoincrement())
+  code      String     @unique
+  name      String
+  baseUrl   String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  listingSources ListingSource[]
+  scrapeRuns     ScrapeRun[]
+}
+
+model Listing {
+  id                        String   @id @default(uuid())
+  fingerprint               String   @unique
+  referenceCode             String?
+  referenceCodeNormalized   String?  @unique
+
+  title                     String
+
+  city                      String
+  district                  String?
+  buildingName              String?
+  address                   String?
+  latitude                  Float?
+  longitude                 Float?
+
+  contractType              ContractType
+  propertyType              PropertyType
+
+  priceMonthlyCents         Int
+  currency                  String   @default("EUR")
+  serviceChargesMonthlyCents Int?
+  serviceChargesIncluded    Boolean?
+
+  rooms                     Int?
+  bedrooms                  Int?
+  bathrooms                 Int?
+  totalAreaSqm              Int?
+  livingAreaSqm             Int?
+  terraceAreaSqm            Int?
+  floor                     Int?
+
+  parkingSpaces             Int?     // new
+  cellars                   Int?     // new
+  isMixedUse                Boolean? // new
+
+  hasRooftop                Boolean?
+  hasTerrace                Boolean?
+  hasSeaView                Boolean?
+  hasElevator               Boolean?
+  hasConcierge              Boolean?
+  hasAC                     Boolean?
+  condition                 Condition @default(UNKNOWN)
+  interiorCondition         InteriorCondition?
+  featuresTags              Json?
+
+  description               String?
+  descriptionLang           String?
+
+  agencyName                String?
+  agencyAddress             String?
+  agencyPhone               String?
+  agencyEmail               String?
+  agencyWebsite             String?
+
+  primaryUrl                String?
+  allUrls                   Json?
+  imageUrls                 Json?
+
+  firstSeenAt               DateTime @default(now())
+  lastSeenAt                DateTime @default(now())
+  isActive                  Boolean  @default(true)
+  score                     Int?
+
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  listingSources            ListingSource[]
+}
+
+model ListingSource {
+  id                            String        @id @default(uuid())
+  listingId                     String
+  sourceWebsiteId               Int
+  sourceListingId               String
+  url                           String
+  sourceReferenceCode           String?
+  sourceReferenceCodeNormalized String?
+  sourceTitle                   String?
+  rawPayload                    Json?
+
+  firstSeenAt                   DateTime @default(now())
+  lastSeenAt                    DateTime @default(now())
+  isActiveOnSource              Boolean  @default(true)
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+
+  listing                       Listing       @relation(fields: [listingId], references: [id])
+  sourceWebsite                 SourceWebsite @relation(fields: [sourceWebsiteId], references: [id])
+
+  @@unique([sourceWebsiteId, sourceListingId])
+}
+
+model ScrapeRun {
+  id                        String        @id @default(uuid())
+  sourceWebsiteId           Int
+  startedAt                 DateTime      @default(now())
+  finishedAt                DateTime?
+  status                    ScrapeStatus  @default(SUCCESS)
+  rawCount                  Int           @default(0)
+  upsertedListingSources    Int           @default(0)
+  newListings               Int           @default(0)
+  errors                    Json?
+
+  sourceWebsite             SourceWebsite @relation(fields: [sourceWebsiteId], references: [id])
+}
+
+enum ContractType {
+  RENT
+  SALE
+}
+
+enum PropertyType {
+  APARTMENT
+  STUDIO
+  PENTHOUSE_APARTMENT
+  VILLA
+  OTHER
+}
+
+enum Condition {
+  NEW
+  RENOVATED
+  GOOD
+  NEEDS_WORK
+  UNKNOWN
+}
+
+enum InteriorCondition {
+  LUXURY_RENOVATED
+  GOOD_MODERN
+  DATED_OK
+  VERY_DATED
+  POOR
+}
+
+enum ScrapeStatus {
+  SUCCESS
+  PARTIAL
+  FAILED
+}
