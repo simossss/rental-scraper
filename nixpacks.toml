@@ -8,5 +8,5 @@ cmds = ["npm ci"]
 cmds = ["npm install && npx prisma generate"]
 
 [start]
-cmd = "npx prisma migrate deploy && npm run start"
+cmd = "./start.sh"
 
