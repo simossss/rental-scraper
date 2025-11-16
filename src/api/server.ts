@@ -31,8 +31,12 @@ app.post("/scrape", async (req, res) => {
   }
   
   // Run scraper in background (don't wait for completion)
-  import('../scrapers/cim-full-v2-cron').catch((err) => {
-    console.error('Error starting scraper:', err);
+  import('../scrapers/runScrape').then(({ runScrape }) => {
+    runScrape().catch((err) => {
+      console.error('Error in scraper:', err);
+    });
+  }).catch((err) => {
+    console.error('Error loading scraper:', err);
   });
   
   res.json({ message: 'Scrape started', status: 'running' });
