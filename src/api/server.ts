@@ -20,6 +20,24 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+// Scrape endpoint (for external cron triggers)
+app.post("/scrape", async (req, res) => {
+  // Optional: Add auth token check for security
+  const authToken = req.headers['x-auth-token'] as string | undefined;
+  const expectedToken = process.env.SCRAPE_AUTH_TOKEN;
+  
+  if (expectedToken && authToken !== expectedToken) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  // Run scraper in background (don't wait for completion)
+  import('../scrapers/cim-full-v2-cron').catch((err) => {
+    console.error('Error starting scraper:', err);
+  });
+  
+  res.json({ message: 'Scrape started', status: 'running' });
+});
+
 /**
  * GET /listings
  *
