@@ -34,10 +34,16 @@ export async function runScrape(): Promise<{ processed: number; newListings: num
         if (result.createdNewListing) {
           newListings++;
           console.log(`✅ New listing created: ${result.listingId}`);
+        } else {
+          console.log(`ℹ️  Listing already exists: ${result.listingId} (updated)`);
         }
       } catch (err: any) {
         errors++;
         console.error(`❌ Error processing ${url}:`, err?.message || err);
+        // Log full error for debugging
+        if (err?.stack) {
+          console.error('Error stack:', err.stack);
+        }
       }
 
       // Small delay to be polite to the server

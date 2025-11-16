@@ -103,6 +103,7 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
 
   if (existingSource) {
     listing = existingSource.listing;
+    console.log(`Found existing ListingSource for URL ID ${input.sourceListingId}, listingId=${listing.id}`);
   }
 
   // Fallback 1: Try by normalized reference code (RIF)
