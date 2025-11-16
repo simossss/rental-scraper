@@ -39,6 +39,11 @@ This guide covers deploying the Monaco Rental Scraper to production.
 1. In your Railway project, click "+ New"
 2. Select "Database" → "Add PostgreSQL"
 3. Railway will automatically create a `DATABASE_URL` environment variable
+4. **IMPORTANT**: Make sure the PostgreSQL service is connected to your backend service. Railway should do this automatically, but verify by:
+   - Clicking on your backend service
+   - Going to "Variables" tab
+   - Checking that `DATABASE_URL` is listed (it should be auto-injected from the PostgreSQL service)
+   - If `DATABASE_URL` is missing, click "Add Reference" and select your PostgreSQL service
 
 ### 2.3 Deploy Backend Service
 
