@@ -1,0 +1,50 @@
+#!/bin/bash
+# Script to reset database migrations on Railway
+# Copy this to reset-db-railway.sh and fill in your credentials
+
+# Set your Railway PostgreSQL connection details
+export PGHOST=your-proxy-host.rlwy.net
+export PGPORT=your-port
+export PGDATABASE=railway
+export PGUSER=postgres
+export PGPASSWORD=your-password
+
+echo "=== Connecting to Railway PostgreSQL ==="
+echo "Host: $PGHOST"
+echo "Port: $PGPORT"
+echo "Database: $PGDATABASE"
+echo ""
+
+# Test connection
+echo "Testing connection..."
+psql -c "SELECT version();" || {
+  echo "ERROR: Could not connect to database"
+  exit 1
+}
+
+echo "✓ Connected successfully"
+echo ""
+
+# Reset migrations
+echo "=== Resetting Prisma Migrations ==="
+echo "This will drop all tables and re-create them."
+echo ""
+
+# Set DATABASE_URL for Prisma
+export DATABASE_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+
+# Run Prisma reset
+npx prisma migrate reset --force --skip-seed
+
+echo ""
+echo "=== Re-running Migrations ==="
+npx prisma migrate deploy
+
+echo ""
+echo "=== Verifying Tables ==="
+psql -c "\dt" | grep -E "Listing|SourceWebsite|_prisma_migrations" || echo "Tables may not be visible in this view"
+
+echo ""
+echo "✓ Database reset complete!"
+echo "You can now check Railway's database UI to see the tables."
+

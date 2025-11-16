@@ -34,3 +34,6 @@ coverage/
 # Misc
 *.pem
 .cache/
+
+# Database reset scripts with credentials
+reset-db-railway.sh
