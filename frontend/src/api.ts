@@ -1,6 +1,8 @@
 import type { ListingsResponse, Filters, SortOption } from './types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Use Vercel rewrite in production, or direct API URL if set, or localhost for dev
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (import.meta.env.PROD ? '/api' : 'http://localhost:3001');
 
 export async function fetchListings(
   filters: Filters,
