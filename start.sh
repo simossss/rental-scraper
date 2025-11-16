@@ -26,8 +26,6 @@ npx prisma migrate deploy || {
 }
 
 echo "✓ Migrations completed"
-
-echo "✓ Migrations completed"
 echo "Starting server..."
 
 # Start the server
