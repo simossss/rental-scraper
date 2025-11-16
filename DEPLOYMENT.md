@@ -66,8 +66,8 @@ PORT=3001
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 TELEGRAM_CHAT_ID=your_chat_id_here
 
-# CORS (for frontend)
-CORS_ORIGIN=https://your-frontend.vercel.app
+# CORS (for frontend) - Add your Vercel domain(s), comma-separated for multiple
+CORS_ORIGIN=https://rental-scraper-git-main-digital7402-pmmes-projects.vercel.app
 ```
 
 ### 2.5 Configure Build & Start Commands

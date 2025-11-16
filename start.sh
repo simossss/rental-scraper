@@ -17,11 +17,17 @@ fi
 echo "✓ DATABASE_URL is set"
 echo "Running database migrations..."
 
-# Run migrations
-npx prisma migrate deploy || {
+# Run migrations with verbose output
+npx prisma migrate deploy --verbose || {
   echo "ERROR: Migration failed!"
+  echo "Attempting to check migration status..."
+  npx prisma migrate status
   exit 1
 }
+
+# Verify migrations were applied
+echo "Verifying migrations..."
+npx prisma migrate status
 
 echo "✓ Migrations completed"
 echo "Starting server..."
