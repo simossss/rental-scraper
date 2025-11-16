@@ -11,7 +11,9 @@
     "scrape": "node -r ts-node/register src/scrapers/cim-full-v2-cron.ts",
     "build": "tsc",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy"
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:reset": "prisma migrate reset --force",
+    "prisma:status": "prisma migrate status"
   },
   "keywords": [],
   "author": "",
