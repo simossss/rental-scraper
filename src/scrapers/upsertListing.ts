@@ -358,5 +358,6 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
     listingId: listing.id,
     listingSourceId: listingSource.id,
     createdNewListing,
+    score: listing.score,
   };
 }

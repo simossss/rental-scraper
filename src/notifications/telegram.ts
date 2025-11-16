@@ -62,3 +62,35 @@ ${error}
   return sendTelegramMessage(message);
 }
 
+export async function sendNewListingNotification(
+  listing: {
+    title: string;
+    score: number | null;
+    priceMonthlyCents: number;
+    rooms: number | null;
+    district: string | null;
+    buildingName: string | null;
+    url: string;
+  }
+): Promise<boolean> {
+  const price = listing.priceMonthlyCents / 100;
+  const priceText = price > 0 ? `€${price.toLocaleString()}/mois` : 'Prix sur demande';
+  const roomsText = listing.rooms ? `${listing.rooms} pièce${listing.rooms > 1 ? 's' : ''}` : '? pièces';
+  const location = [listing.buildingName, listing.district].filter(Boolean).join(', ') || 'Monaco';
+  
+  const message = `
+🏠 <b>Nouvelle annonce</b>
+
+<b>${listing.title}</b>
+
+📍 ${location}
+🏘️ ${roomsText}
+💰 ${priceText}
+⭐ Score: <b>${listing.score ?? 'N/A'}</b>
+
+<a href="${listing.url}">Voir l'annonce</a>
+  `.trim();
+
+  return sendTelegramMessage(message);
+}
+

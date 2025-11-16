@@ -4,7 +4,7 @@
  */
 
 import { collectAllListingUrls, scrapeSingleListing } from './cim-full-v2';
-import { initTelegram, sendScrapeSummary, sendErrorNotification } from '../notifications/telegram';
+import { initTelegram, sendNewListingNotification, sendErrorNotification } from '../notifications/telegram';
 import { prisma } from '../db/client';
 
 // Initialize Telegram if credentials are provided
@@ -33,7 +33,36 @@ export async function runScrape(): Promise<{ processed: number; newListings: num
         const result = await scrapeSingleListing(url);
         if (result.createdNewListing) {
           newListings++;
-          console.log(`✅ New listing created: ${result.listingId}`);
+          console.log(`✅ New listing created: ${result.listingId}, score: ${result.score}`);
+          
+          // Send notification only if score > 50
+          if (result.score !== null && result.score > 50 && telegramBotToken && telegramChatId) {
+            // Fetch full listing details for notification
+            const listing = await prisma.listing.findUnique({
+              where: { id: result.listingId },
+              select: {
+                title: true,
+                score: true,
+                priceMonthlyCents: true,
+                rooms: true,
+                district: true,
+                buildingName: true,
+                primaryUrl: true,
+              },
+            });
+            
+            if (listing && listing.primaryUrl) {
+              await sendNewListingNotification({
+                title: listing.title,
+                score: listing.score,
+                priceMonthlyCents: listing.priceMonthlyCents,
+                rooms: listing.rooms,
+                district: listing.district,
+                buildingName: listing.buildingName,
+                url: listing.primaryUrl,
+              });
+            }
+          }
         } else {
           console.log(`ℹ️  Listing already exists: ${result.listingId} (updated)`);
         }
@@ -53,11 +82,9 @@ export async function runScrape(): Promise<{ processed: number; newListings: num
     }
 
     console.log(`\n✅ Scrape complete! Processed: ${processed}, New: ${newListings}, Errors: ${errors}`);
-
-    // Send summary notification
-    if (telegramBotToken && telegramChatId) {
-      await sendScrapeSummary(processed, newListings, errors);
-    }
+    
+    // Only send error notifications for fatal errors, not summary
+    // Individual notifications for high-scoring new listings are sent above
 
     return { processed, newListings, errors };
   } catch (error: any) {
