@@ -2,6 +2,8 @@
 
 A modern web scraper and listing platform for Monaco rental properties, featuring real-time scoring, filtering, and Telegram notifications.
 
+<!-- Deployment trigger -->
+
 ## Features
 
 - 🏠 **Automated Scraping**: Hourly scraping of Monaco rental listings
