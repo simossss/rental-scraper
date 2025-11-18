@@ -62,6 +62,7 @@ export type UpsertResult = {
   listingSourceId: string;
   createdNewListing: boolean;
   score: number | null;
+  priceMonthlyCents: number;
 };
 
 export async function upsertParsedListing(input: ParsedListingInput): Promise<UpsertResult> {
@@ -219,9 +220,10 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
       finalFingerprint = `${fingerprint}|url:${input.sourceListingId}`;
     }
     
-    listing = await prisma.listing.create({
-      data: {
-        fingerprint: finalFingerprint,
+    try {
+      listing = await prisma.listing.create({
+        data: {
+          fingerprint: finalFingerprint,
         referenceCode: input.referenceRaw || null,
         // Only set referenceCodeNormalized if it's safe (won't conflict with existing listing)
         referenceCodeNormalized: (shouldUseRifCode && normalizedRef) || null,
@@ -281,15 +283,48 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
         score: null, // Will be computed after creation
       },
     });
+    } catch (error: any) {
+      // Handle race condition: if fingerprint already exists, look it up
+      if (error.code === 'P2002' && error.meta?.target?.includes('fingerprint')) {
+        console.log(`⚠️  Fingerprint conflict detected: ${finalFingerprint}, looking up existing listing...`);
+        listing = await prisma.listing.findUnique({
+          where: { fingerprint: finalFingerprint },
+        });
+        if (!listing) {
+          // If still not found, try with URL ID appended
+          const fallbackFingerprint = `${fingerprint}|url:${input.sourceListingId}`;
+          listing = await prisma.listing.findUnique({
+            where: { fingerprint: fallbackFingerprint },
+          });
+          if (listing) {
+            console.log(`✅ Found existing listing with fallback fingerprint: ${fallbackFingerprint}`);
+          }
+        }
+        if (!listing) {
+          // If still not found, throw the original error
+          throw error;
+        }
+        console.log(`✅ Found existing listing by fingerprint: ${listing.id}`);
+        // Don't set createdNewListing = true since we found an existing listing
+        createdNewListing = false;
+      } else {
+        throw error;
+      }
+    }
 
-    // Compute and update score
-    const computedScore = scoreListing(listing);
-    listing = await prisma.listing.update({
-      where: { id: listing.id },
-      data: { score: computedScore },
-    });
+    // Compute and update score (only if we just created it, not if we found it)
+    if (listing && !listing.score) {
+      const computedScore = scoreListing(listing);
+      listing = await prisma.listing.update({
+        where: { id: listing.id },
+        data: { score: computedScore },
+      });
+    }
 
-    createdNewListing = true;
+    // Only mark as new if we actually created it (not if we found it via error handling)
+    if (createdNewListing === undefined) {
+      createdNewListing = true;
+    }
   } else {
     listing = await prisma.listing.update({
       where: { id: listing.id },
@@ -391,5 +426,6 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
     listingSourceId: listingSource.id,
     createdNewListing,
     score: listing.score,
+    priceMonthlyCents: listing.priceMonthlyCents,
   };
 }

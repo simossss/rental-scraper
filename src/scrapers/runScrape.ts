@@ -40,8 +40,8 @@ async function scrapeWebsite(
         newListings++;
         console.log(`✅ New listing created: ${result.listingId}, score: ${result.score}`);
         
-        // Send notification only if score > 50
-        if (result.score !== null && result.score > 50 && telegramBotToken && telegramChatId) {
+        // Send notification only if score > 50 AND price > 0 (exclude "Price on request")
+        if (result.score !== null && result.score > 50 && result.priceMonthlyCents > 0 && telegramBotToken && telegramChatId) {
           // Fetch full listing details for notification
           const listing = await prisma.listing.findUnique({
             where: { id: result.listingId },
