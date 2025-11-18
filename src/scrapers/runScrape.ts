@@ -41,6 +41,7 @@ async function scrapeWebsite(
         console.log(`✅ New listing created: ${result.listingId}, score: ${result.score}`);
         
         // Send notification only if score >= 50 AND price > 0 AND price <= 12000 EUR (1200000 cents)
+        // AND exclude Law 887 listings (listings with "887" in the title)
         if (result.score !== null && result.score >= 50 && result.priceMonthlyCents > 0 && result.priceMonthlyCents <= 1200000 && telegramBotToken && telegramChatId) {
           // Fetch full listing details for notification
           const listing = await prisma.listing.findUnique({
@@ -56,7 +57,10 @@ async function scrapeWebsite(
             },
           });
           
-          if (listing && listing.primaryUrl) {
+          // Exclude Law 887 listings (check if "887" is in the title)
+          const isLaw887 = listing?.title && /887/i.test(listing.title);
+          
+          if (listing && listing.primaryUrl && !isLaw887) {
             await sendNewListingNotification({
               title: listing.title,
               score: listing.score,

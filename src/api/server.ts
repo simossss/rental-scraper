@@ -127,6 +127,7 @@ app.post("/daily-summary", async (req, res) => {
  * - minScore              -> minimum score (0-100)
  * - rooms                 -> comma separated list of room counts (2, 3, 4, 5 for 5+)
  * - showZeroPrice         -> "true" to show listings with 0 price and >3 rooms
+ * - excludeLaw887         -> "true" to exclude listings with "887" in the title
  * - take                  -> page size, default 50
  * - skip                  -> offset, default 0
  * - orderBy               -> "priceAsc" | "priceDesc" | "createdDesc" | "createdAsc" | "scoreDesc"
@@ -198,6 +199,10 @@ app.get("/listings", async (req, res) => {
     // showZeroPrice: whether to show listings with 0 price and >3 rooms
     const showZeroPriceRaw = req.query.showZeroPrice as string | undefined;
     const showZeroPrice = showZeroPriceRaw === "true";
+
+    // excludeLaw887: whether to exclude listings with "887" in the title
+    const excludeLaw887Raw = req.query.excludeLaw887 as string | undefined;
+    const excludeLaw887 = excludeLaw887Raw === "true";
 
     // pagination
     const take = req.query.take ? Number(req.query.take) : 50;
@@ -294,6 +299,18 @@ app.get("/listings", async (req, res) => {
         andConditions.push({ OR: roomConditions });
       }
     }
+
+    // Exclude Law 887 listings (if excludeLaw887 is true)
+    if (excludeLaw887) {
+      andConditions.push({
+        NOT: {
+          title: {
+            contains: "887",
+            mode: "insensitive",
+          },
+        },
+      });
+    }
     
     // Add AND conditions if any
     if (andConditions.length > 0) {
@@ -326,6 +343,7 @@ app.get("/listings", async (req, res) => {
         minScore: minScore ?? null,
         rooms,
         showZeroPrice,
+        excludeLaw887,
       },
       items,
     });

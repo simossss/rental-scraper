@@ -22,6 +22,7 @@ function App() {
     minScore: null,
     rooms: [],
     showZeroPrice: false,
+    excludeLaw887: true, // Default to excluding Law 887 listings
   });
 
   useEffect(() => {
@@ -154,14 +155,16 @@ function App() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Filter Sidebar (Desktop) */}
+          {/* Filter Sidebar (Desktop) - Sticky */}
           <aside className="hidden lg:block lg:w-80 lg:flex-shrink-0">
-            <FilterDrawer
-              isOpen={true}
-              onClose={() => {}}
-              filters={filters}
-              onFiltersChange={setFilters}
-            />
+            <div className="sticky top-4 self-start max-h-[calc(100vh-1rem)] overflow-y-auto">
+              <FilterDrawer
+                isOpen={true}
+                onClose={() => {}}
+                filters={filters}
+                onFiltersChange={setFilters}
+              />
+            </div>
           </aside>
 
           {/* Filter Drawer (Mobile) */}

@@ -54,6 +54,7 @@ export function FilterDrawer({ isOpen, onClose, filters, onFiltersChange }: Filt
       minScore: null,
       rooms: [],
       showZeroPrice: false,
+      excludeLaw887: true, // Keep Law 887 exclusion by default
     });
   };
 
@@ -65,7 +66,8 @@ export function FilterDrawer({ isOpen, onClose, filters, onFiltersChange }: Filt
     filters.hasParking !== null ||
     filters.minScore !== null ||
     filters.rooms.length > 0 ||
-    filters.showZeroPrice;
+    filters.showZeroPrice ||
+    !filters.excludeLaw887; // excludeLaw887=true is default, so !excludeLaw887 means it's changed
 
   return (
     <>
@@ -271,20 +273,33 @@ export function FilterDrawer({ isOpen, onClose, filters, onFiltersChange }: Filt
               )}
             </div>
 
-            {/* Show Zero Price Listings */}
+            {/* Options */}
             <div>
               <label className="block text-sm font-bold text-slate-900 mb-4">Options</label>
-              <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors group">
-                <input
-                  type="checkbox"
-                  checked={filters.showZeroPrice}
-                  onChange={(e) => updateFilter('showZeroPrice', e.target.checked)}
-                  className="w-4 h-4 text-primary-600 focus:ring-primary-500 focus:ring-2 rounded border-slate-300"
-                />
-                <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">
-                  Show listings with 0 price (if {'>'}3 rooms)
-                </span>
-              </label>
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors group">
+                  <input
+                    type="checkbox"
+                    checked={filters.showZeroPrice}
+                    onChange={(e) => updateFilter('showZeroPrice', e.target.checked)}
+                    className="w-4 h-4 text-primary-600 focus:ring-primary-500 focus:ring-2 rounded border-slate-300"
+                  />
+                  <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">
+                    Show listings with 0 price (if {'>'}3 rooms)
+                  </span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors group">
+                  <input
+                    type="checkbox"
+                    checked={filters.excludeLaw887}
+                    onChange={(e) => updateFilter('excludeLaw887', e.target.checked)}
+                    className="w-4 h-4 text-primary-600 focus:ring-primary-500 focus:ring-2 rounded border-slate-300"
+                  />
+                  <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">
+                    Exclude Law 887 listings
+                  </span>
+                </label>
+              </div>
             </div>
           </div>
         </div>

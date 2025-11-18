@@ -36,6 +36,9 @@ export async function fetchListings(
   if (filters.showZeroPrice) {
     params.append('showZeroPrice', 'true');
   }
+  if (filters.excludeLaw887) {
+    params.append('excludeLaw887', 'true');
+  }
   
   params.append('orderBy', sortBy);
   params.append('take', pageSize.toString());

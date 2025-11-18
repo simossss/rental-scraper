@@ -54,6 +54,7 @@ export interface Filters {
   minScore: number | null;
   rooms: number[]; // Array of room counts (2, 3, 4, or 5+)
   showZeroPrice: boolean; // Show listings with 0 price and >3 rooms
+  excludeLaw887: boolean; // Exclude listings with "887" in the title
 }
 
 export type SortOption = 'scoreDesc' | 'priceAsc' | 'priceDesc' | 'createdDesc';
