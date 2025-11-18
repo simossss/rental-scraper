@@ -1,4 +1,5 @@
 // src/scrapers/mcre-full.ts
+// MCRE scraper for Monte Carlo Real Estate listings
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { ContractType, PropertyType } from "@prisma/client";
