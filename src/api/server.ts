@@ -42,6 +42,27 @@ app.post("/scrape", async (req, res) => {
   res.json({ message: 'Scrape started', status: 'running' });
 });
 
+// Seed endpoint (for initializing source websites)
+app.post("/seed", async (req, res) => {
+  // Optional: Add auth token check for security
+  const authToken = req.headers['x-auth-token'] as string | undefined;
+  const expectedToken = process.env.SCRAPE_AUTH_TOKEN;
+  
+  if (expectedToken && authToken !== expectedToken) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  try {
+    const { seedSourceWebsites } = await import('../maintenance/seed-source-websites');
+    await seedSourceWebsites();
+    // Don't disconnect Prisma - we're running in the same process as the API
+    res.json({ message: 'Database seeded successfully' });
+  } catch (err: any) {
+    console.error('Error seeding database:', err);
+    res.status(500).json({ error: err?.message || 'Internal error' });
+  }
+});
+
 // Daily summary endpoint (for cron job at 7:30 PM CET)
 app.post("/daily-summary", async (req, res) => {
   // Optional: Add auth token check for security

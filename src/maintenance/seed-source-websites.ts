@@ -5,7 +5,7 @@
 
 import { prisma } from '../db/client';
 
-async function seedSourceWebsites() {
+export async function seedSourceWebsites() {
   console.log('Seeding SourceWebsite table...');
 
   const cimWebsite = await prisma.sourceWebsite.upsert({
