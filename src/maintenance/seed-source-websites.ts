@@ -1,5 +1,5 @@
 /**
- * Seed the SourceWebsite table with CIM website info
+ * Seed the SourceWebsite table with CIM and MCRE website info
  * This needs to be run once before scraping can work
  */
 
@@ -21,7 +21,22 @@ async function seedSourceWebsites() {
     },
   });
 
-  console.log('✅ SourceWebsite seeded:', cimWebsite);
+  console.log('✅ CIM SourceWebsite seeded:', cimWebsite);
+
+  const mcreWebsite = await prisma.sourceWebsite.upsert({
+    where: { code: 'MCRE' },
+    update: {
+      name: 'Monte Carlo Real Estate',
+      baseUrl: 'https://www.montecarlo-realestate.com',
+    },
+    create: {
+      code: 'MCRE',
+      name: 'Monte Carlo Real Estate',
+      baseUrl: 'https://www.montecarlo-realestate.com',
+    },
+  });
+
+  console.log('✅ MCRE SourceWebsite seeded:', mcreWebsite);
 }
 
 async function run() {

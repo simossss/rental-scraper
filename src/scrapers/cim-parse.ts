@@ -139,9 +139,12 @@ export function parseCimListing(html: string, url: string): ParsedCimListing {
   // Property type, rooms, beds, baths, areas, floor
   function numOrNull(value: string | undefined): number | null {
     if (!value) return null;
-    const digits = value.replace(/[^0-9]/g, "");
-    if (!digits) return null;
-    return parseInt(digits, 10);
+    // Handle fractional numbers (e.g., "296.50 Mq" -> 296.50)
+    // Replace comma with dot for European format, then parse as float
+    const normalized = value.replace(/,/g, '.').replace(/[^\d.]/g, '');
+    if (!normalized) return null;
+    const parsed = parseFloat(normalized);
+    return isNaN(parsed) ? null : Math.round(parsed); // Round to integer for area in sqm
   }
 
   const propertyType = textOrNull(caracMap["tipologia di immobile"]);

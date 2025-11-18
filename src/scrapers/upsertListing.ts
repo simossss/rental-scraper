@@ -107,32 +107,49 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
   }
 
   // Fallback 1: Try by normalized reference code (RIF)
-  // BUT only if we can verify it's the same listing by checking URL ID
+  // This can match listings from OTHER websites (cross-website deduplication)
   if (!listing && normalizedRef) {
     const listingByRif = await prisma.listing.findUnique({
       where: { referenceCodeNormalized: normalizedRef },
       include: {
-        listingSources: {
-          where: { sourceWebsiteId: sourceWebsite.id },
-          select: { sourceListingId: true },
-        },
+        listingSources: true,
       },
     });
     
-    // Only use RIF match if:
-    // 1. No existing source with this URL ID exists, OR
-    // 2. The listing already has this URL ID as a source
     if (listingByRif) {
+      // Check if this listing already has a source from this website with this URL ID
       const hasThisUrlId = listingByRif.listingSources.some(
-        (s) => s.sourceListingId === input.sourceListingId
+        (s) => s.sourceWebsiteId === sourceWebsite.id && s.sourceListingId === input.sourceListingId
       );
+      
       if (hasThisUrlId) {
+        // Already have this exact source, use it
         listing = listingByRif;
       } else {
-        // If listing exists but doesn't have this URL ID, don't merge
-        // AND don't use this RIF code (it would violate unique constraint)
-        // (they might be different listings with same RIF code)
-        shouldUseRifCode = false;
+        // Cross-website match: verify it's the same listing by price and size
+        // Price tolerance: within 100 EUR (10000 cents)
+        const priceDiff = Math.abs(listingByRif.priceMonthlyCents - input.priceMonthlyCents);
+        const priceMatches = priceDiff <= 10000;
+        
+        // Size tolerance: within 5 sqm
+        const totalAreaMatches = 
+          listingByRif.totalAreaSqm === null || input.totalAreaSqm === null
+            ? false // If either is null, require exact match (both null)
+            : Math.abs(listingByRif.totalAreaSqm - input.totalAreaSqm) <= 5;
+        
+        const livableArea1 = (listingByRif.totalAreaSqm || 0) - (listingByRif.terraceAreaSqm || 0);
+        const livableArea2 = (input.totalAreaSqm || 0) - (input.terraceAreaSqm || 0);
+        const livableAreaMatches = Math.abs(livableArea1 - livableArea2) <= 5;
+        
+        if (priceMatches && (totalAreaMatches || livableAreaMatches)) {
+          // It's the same listing from a different website - merge the sources
+          console.log(`Cross-website match found by reference code: ${normalizedRef}, price and size match`);
+          listing = listingByRif;
+        } else {
+          // Different listing with same reference code (rare but possible)
+          // Don't merge, and don't use this RIF code (would violate unique constraint)
+          shouldUseRifCode = false;
+        }
       }
     }
   }

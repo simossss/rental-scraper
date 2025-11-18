@@ -1,13 +1,18 @@
 // src/lib/normalize.ts
 
 // Normalize the RIF / Reference code so different sites match
+// Handles cases like:
+// - "ACL_2P_Chateau_Azur_9" vs "rif ACL_2P_Chateau_Azur_"
+// - Removes trailing underscores and normalizes separators
 export function normalizeReference(ref?: string | null): string | null {
   if (!ref) return null;
 
   return ref
     .toUpperCase()
-    .replace(/^RIF\s+/, "")    // remove leading "RIF "
-    .replace(/\s+/g, " ")      // collapse multiple spaces
+    .replace(/^RIF\s+/, "")           // remove leading "RIF "
+    .replace(/\s+/g, "_")            // spaces -> underscores
+    .replace(/[_\s]+/g, "_")          // collapse multiple underscores/spaces
+    .replace(/_+$/, "")               // remove trailing underscores
     .trim();
 }
 
