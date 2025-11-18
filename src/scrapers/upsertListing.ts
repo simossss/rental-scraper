@@ -211,6 +211,7 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
   );
 
   let createdNewListing = false;
+  let listingWasCreated = false; // Track if we actually created it (vs found via error handling)
 
   if (!listing) {
     // Generate a unique fingerprint if the original would conflict
@@ -283,6 +284,7 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
         score: null, // Will be computed after creation
       },
     });
+    listingWasCreated = true; // Successfully created
     } catch (error: any) {
       // Handle race condition: if fingerprint already exists, look it up
       if (error.code === 'P2002' && error.meta?.target?.includes('fingerprint')) {
@@ -305,8 +307,7 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
           throw error;
         }
         console.log(`✅ Found existing listing by fingerprint: ${listing.id}`);
-        // Don't set createdNewListing = true since we found an existing listing
-        createdNewListing = false;
+        listingWasCreated = false; // We found an existing listing, didn't create it
       } else {
         throw error;
       }
@@ -321,10 +322,8 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
       });
     }
 
-    // Only mark as new if we actually created it (not if we found it via error handling)
-    if (createdNewListing === undefined) {
-      createdNewListing = true;
-    }
+    // Mark as new only if we actually created it
+    createdNewListing = listingWasCreated;
   } else {
     listing = await prisma.listing.update({
       where: { id: listing.id },
