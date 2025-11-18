@@ -6,6 +6,9 @@
 RAILWAY_URL="${1:-http://localhost:3001}"
 AUTH_TOKEN="${2:-${SCRAPE_AUTH_TOKEN}}"
 
+# Remove trailing slash from URL if present
+RAILWAY_URL="${RAILWAY_URL%/}"
+
 echo "🚀 Testing Railway scraper..."
 echo "📍 URL: $RAILWAY_URL"
 echo ""
