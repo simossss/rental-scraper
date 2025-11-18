@@ -209,7 +209,7 @@ export function FilterDrawer({ isOpen, onClose, filters, onFiltersChange }: Filt
                   Loading...
                 </div>
               ) : (
-                <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto scrollbar-hide">
+                <div className="flex flex-wrap gap-2">
                   {districts.map((district) => {
                     const isSelected = filters.districts.includes(district);
                     return (
