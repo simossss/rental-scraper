@@ -13,17 +13,34 @@ const BASE_LISTINGS_URL =
 // ------- helpers to parse listing grid -------
 
 function extractListingUrlsFromPage($: cheerio.CheerioAPI): string[] {
-  const urls: string[] = [];
-  // MCRE uses links like /en/properties/mc-tc-6-32736
+  const urls = new Set<string>();
+  // MCRE uses links like /en/properties/mc-tc-6-32736 or /en/properties/mc-tc-155-32201
+  // Look for links in listing cards/containers, not navigation or footer links
   $("a[href*='/properties/']").each((_i, el) => {
     const href = $(el).attr("href");
     if (!href) return;
-    const fullUrl = href.startsWith("http") ? href : BASE_HOST + href;
-    if (!urls.includes(fullUrl)) {
-      urls.push(fullUrl);
-    }
+    
+    // Skip if it's in navigation, footer, or similar properties sections
+    const $el = $(el);
+    const isInNav = $el.closest('nav, header, footer, .navigation, .menu, .similar-properties, .related-properties').length > 0;
+    if (isInNav) return;
+    
+    // Only include URLs that match the property listing pattern: /en/properties/mc-tc-XXX-XXXXX
+    // Pattern: /properties/ followed by alphanumeric-dash pattern
+    if (!/\/properties\/[^\/\?]+/.test(href)) return;
+    
+    // Build full URL
+    let fullUrl = href.startsWith("http") ? href : BASE_HOST + href;
+    
+    // Remove query parameters and fragments to normalize URLs
+    const urlObj = new URL(fullUrl);
+    urlObj.search = '';
+    urlObj.hash = '';
+    fullUrl = urlObj.toString();
+    
+    urls.add(fullUrl);
   });
-  return urls;
+  return Array.from(urls);
 }
 
 async function fetchListingsPage(page: number): Promise<{
@@ -52,30 +69,39 @@ async function fetchListingsPage(page: number): Promise<{
 
 // Detect total pages from pagination
 function detectTotalPages($: cheerio.CheerioAPI): number {
-  // Look for pagination links
-  const pageLinks = $(".pagination a, .pager a, [class*='page'] a");
+  // Look for pagination links in various formats
+  const pageLinks = $(".pagination a, .pager a, [class*='page'] a, [class*='pagination'] a, nav a");
   let maxPage = 1;
   
   pageLinks.each((_i, el) => {
     const text = $(el).text().trim();
-    const pageNum = parseInt(text, 10);
+    const href = $(el).attr("href") || "";
+    // Try to extract page number from text
+    let pageNum = parseInt(text, 10);
+    // If text doesn't parse, try extracting from href (e.g., ?page=5)
+    if (isNaN(pageNum)) {
+      const pageMatch = href.match(/[?&]page=(\d+)/);
+      if (pageMatch) {
+        pageNum = parseInt(pageMatch[1], 10);
+      }
+    }
     if (!isNaN(pageNum) && pageNum > maxPage) {
       maxPage = pageNum;
     }
   });
   
   // Also check for "next" button or "last" button
-  const nextButton = $("a:contains('Next'), a:contains('next'), .next");
-  const hasNext = nextButton.length > 0;
+  const nextButton = $("a:contains('Next'), a:contains('next'), .next, [aria-label*='next' i], [aria-label*='Next' i]");
+  const hasNext = nextButton.length > 0 && !nextButton.hasClass('disabled');
   
   // If we found pages, return max; otherwise check if there's a next button
   if (maxPage > 1) {
     return maxPage;
   }
   
-  // If there's a next button on page 1, we need to check page 2
-  // For now, return a reasonable default and let the scraper discover pages
-  return hasNext ? 10 : 1; // Start with assumption of 10 pages max, will adjust
+  // If there's a next button, we'll discover pages dynamically
+  // Return a high number to ensure we check many pages, but the loop will stop when no listings are found
+  return hasNext ? 50 : 1; // Increased from 10 to 50 to catch more pages
 }
 
 export async function collectAllMcreListingUrls(): Promise<string[]> {
@@ -92,29 +118,48 @@ export async function collectAllMcreListingUrls(): Promise<string[]> {
   let totalPages = detectTotalPages($page1);
   console.log(`Detected up to ${totalPages} pages`);
 
-  // Fetch remaining pages
+  // Fetch remaining pages - continue until we find no more listings
+  // This ensures we don't miss listings even if pagination detection is imperfect
+  let consecutiveEmptyPages = 0;
+  const maxConsecutiveEmpty = 2; // Stop after 2 consecutive empty pages
+  
   for (let page = 2; page <= totalPages; page++) {
     try {
       const { $ } = await fetchListingsPage(page);
       const pageUrls = extractListingUrlsFromPage($);
       
       if (pageUrls.length === 0) {
-        // No more listings, stop
-        console.log(`Page ${page}: No listings found, stopping pagination`);
-        break;
+        consecutiveEmptyPages++;
+        console.log(`Page ${page}: No listings found (consecutive empty: ${consecutiveEmptyPages})`);
+        
+        if (consecutiveEmptyPages >= maxConsecutiveEmpty) {
+          console.log(`Stopping pagination after ${maxConsecutiveEmpty} consecutive empty pages`);
+          break;
+        }
+        continue; // Try next page even if this one is empty
       }
       
+      // Reset counter if we found listings
+      consecutiveEmptyPages = 0;
       pageUrls.forEach((u) => all.add(u));
       console.log(`Page ${page}: Found ${pageUrls.length} listing URLs (total unique: ${all.size})`);
       
-      // If we got fewer URLs than expected, might be last page
-      if (pageUrls.length < urlsPage1.length * 0.5) {
-        console.log(`Page ${page}: Significantly fewer listings, might be last page`);
+      // If we got significantly fewer URLs than expected, might be approaching last page
+      if (pageUrls.length < urlsPage1.length * 0.3) {
+        console.log(`Page ${page}: Significantly fewer listings (${pageUrls.length} vs ${urlsPage1.length}), might be approaching last page`);
       }
     } catch (err: any) {
+      consecutiveEmptyPages++;
       console.error(`Error fetching page ${page}:`, err.message);
-      // If page doesn't exist, stop
-      break;
+      
+      // If we get multiple consecutive errors, stop
+      if (consecutiveEmptyPages >= maxConsecutiveEmpty) {
+        console.log(`Stopping pagination after ${maxConsecutiveEmpty} consecutive errors`);
+        break;
+      }
+      
+      // Wait a bit before retrying next page
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
 
