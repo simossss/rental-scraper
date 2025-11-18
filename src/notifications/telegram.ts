@@ -94,3 +94,48 @@ export async function sendNewListingNotification(
   return sendTelegramMessage(message);
 }
 
+export async function sendDailySummary(
+  summary: {
+    total: number;
+    byRooms: Array<{ rooms: number | null; count: number }>;
+    date: string;
+  }
+): Promise<boolean> {
+  const { total, byRooms, date } = summary;
+  
+  if (total === 0) {
+    const message = `
+📅 <b>Résumé quotidien</b>
+
+📆 ${date}
+
+Aucune nouvelle annonce aujourd'hui.
+    `.trim();
+    return sendTelegramMessage(message);
+  }
+  
+  // Format room groups nicely
+  const roomGroups: string[] = [];
+  for (const group of byRooms) {
+    if (group.rooms === null) {
+      roomGroups.push(`   • Non spécifié: <b>${group.count}</b>`);
+    } else if (group.rooms >= 5) {
+      roomGroups.push(`   • 5+ pièces: <b>${group.count}</b>`);
+    } else {
+      roomGroups.push(`   • ${group.rooms} pièce${group.rooms > 1 ? 's' : ''}: <b>${group.count}</b>`);
+    }
+  }
+  
+  const message = `
+📅 <b>Résumé quotidien</b>
+
+📆 ${date}
+
+📊 <b>Total nouvelles annonces: ${total}</b>
+
+${roomGroups.join('\n')}
+  `.trim();
+
+  return sendTelegramMessage(message);
+}
+

@@ -42,6 +42,47 @@ app.post("/scrape", async (req, res) => {
   res.json({ message: 'Scrape started', status: 'running' });
 });
 
+// Daily summary endpoint (for cron job at 7:30 PM CET)
+app.post("/daily-summary", async (req, res) => {
+  // Optional: Add auth token check for security
+  const authToken = req.headers['x-auth-token'] as string | undefined;
+  const expectedToken = process.env.SCRAPE_AUTH_TOKEN;
+  
+  if (expectedToken && authToken !== expectedToken) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  try {
+    const { getTodaySummary } = await import('../lib/dailySummary');
+    const { initTelegram, sendDailySummary } = await import('../notifications/telegram');
+    
+    // Initialize Telegram if credentials are provided
+    const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
+    const telegramChatId = process.env.TELEGRAM_CHAT_ID;
+    
+    if (!telegramBotToken || !telegramChatId) {
+      return res.status(500).json({ error: 'Telegram not configured' });
+    }
+    
+    initTelegram(telegramBotToken, telegramChatId);
+    
+    // Get today's summary
+    const summary = await getTodaySummary(prisma);
+    
+    // Send notification
+    const sent = await sendDailySummary(summary);
+    
+    if (sent) {
+      res.json({ message: 'Daily summary sent', summary });
+    } else {
+      res.status(500).json({ error: 'Failed to send daily summary' });
+    }
+  } catch (err: any) {
+    console.error('Error in daily summary:', err);
+    res.status(500).json({ error: err?.message || 'Internal error' });
+  }
+});
+
 /**
  * GET /listings
  *
