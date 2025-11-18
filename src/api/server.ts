@@ -22,21 +22,33 @@ app.get("/health", (_req, res) => {
 
 // Scrape endpoint (for external cron triggers)
 app.post("/scrape", async (req, res) => {
+  console.log('📡 Scrape endpoint called at', new Date().toISOString());
+  
   // Optional: Add auth token check for security
   const authToken = req.headers['x-auth-token'] as string | undefined;
   const expectedToken = process.env.SCRAPE_AUTH_TOKEN;
   
   if (expectedToken && authToken !== expectedToken) {
+    console.log('❌ Unauthorized scrape attempt');
     return res.status(401).json({ error: 'Unauthorized' });
   }
   
+  console.log('✅ Starting scraper...');
+  
   // Run scraper in background (don't wait for completion)
   import('../scrapers/runScrape').then(({ runScrape }) => {
-    runScrape().catch((err) => {
-      console.error('Error in scraper:', err);
-    });
+    console.log('📦 Scraper module loaded, starting scrape...');
+    runScrape()
+      .then((result) => {
+        console.log('✅ Scrape completed:', result);
+      })
+      .catch((err) => {
+        console.error('❌ Error in scraper:', err);
+        console.error('Error stack:', err?.stack);
+      });
   }).catch((err) => {
-    console.error('Error loading scraper:', err);
+    console.error('❌ Error loading scraper module:', err);
+    console.error('Error stack:', err?.stack);
   });
   
   res.json({ message: 'Scrape started', status: 'running' });

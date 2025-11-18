@@ -13,7 +13,7 @@ function getDaysOnMarket(firstSeenAt: string): number {
 }
 
 function isNewListing(firstSeenAt: string): boolean {
-  return getDaysOnMarket(firstSeenAt) <= 3;
+  return getDaysOnMarket(firstSeenAt) <= 2;
 }
 
 function formatDaysOnMarket(days: number): string {
