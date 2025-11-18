@@ -166,8 +166,9 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
             // For now, try the first one that matches price/size
             for (const candidate of similarListings) {
               const priceDiff = Math.abs(candidate.priceMonthlyCents - input.priceMonthlyCents);
-              if (priceDiff <= 10000) {
-                // Price matches, check size
+              const bothPriceZero = candidate.priceMonthlyCents === 0 && input.priceMonthlyCents === 0;
+              if (bothPriceZero || priceDiff <= 10000) {
+                // Price matches (or both are 0), check size
                 const existingTotalArea = candidate.totalAreaSqm;
                 const incomingTotalArea = input.totalAreaSqm;
                 const existingTerraceArea = candidate.terraceAreaSqm;
@@ -207,9 +208,10 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
         listing = listingByRif;
       } else {
         // Cross-website match: verify it's the same listing by price and size
-        // Price tolerance: within 100 EUR (10000 cents)
+        // Price tolerance: within 100 EUR (10000 cents), or both are 0 (Price on request)
         const priceDiff = Math.abs(listingByRif.priceMonthlyCents - input.priceMonthlyCents);
-        const priceMatches = priceDiff <= 10000;
+        const bothPriceZero = listingByRif.priceMonthlyCents === 0 && input.priceMonthlyCents === 0;
+        const priceMatches = bothPriceZero || priceDiff <= 10000;
         
         // Size tolerance: within 5 sqm
         const existingTotalArea = listingByRif.totalAreaSqm;
@@ -249,33 +251,124 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
   }
 
   // Fallback 2: Try by fingerprint (for listings without reference codes)
-  // BUT be very careful - only match if we can verify it's the same listing by URL ID
-  // This prevents incorrect merges of different listings with similar characteristics
+  // Allow cross-website matching if price and size match
   let shouldUseFingerprint = true;
   if (!listing) {
     const listingByFingerprint = await prisma.listing.findUnique({
       where: { fingerprint },
       include: {
-        listingSources: {
-          where: { sourceWebsiteId: sourceWebsite.id },
-          select: { sourceListingId: true },
-        },
+        listingSources: true,
       },
     });
     
-    // Only use fingerprint match if the listing already has this URL ID
-    // This ensures we're not merging different listings that happen to have similar fingerprints
     if (listingByFingerprint) {
+      // Check if this listing already has this URL ID (same source, same listing)
       const hasThisUrlId = listingByFingerprint.listingSources.some(
-        (s) => s.sourceListingId === input.sourceListingId
+        (s) => s.sourceWebsiteId === sourceWebsite.id && s.sourceListingId === input.sourceListingId
       );
+      
       if (hasThisUrlId) {
+        // Same listing from same source - use it
         listing = listingByFingerprint;
       } else {
-        // If listing exists but doesn't have this URL ID, don't merge
-        // AND don't use this fingerprint (it would violate unique constraint)
-        // (they might be different listings with similar characteristics)
-        shouldUseFingerprint = false;
+        // Cross-website match: verify it's the same listing by price and size
+        // Price tolerance: within 100 EUR (10000 cents), or both are 0 (Price on request)
+        const priceDiff = Math.abs(listingByFingerprint.priceMonthlyCents - input.priceMonthlyCents);
+        const bothPriceZero = listingByFingerprint.priceMonthlyCents === 0 && input.priceMonthlyCents === 0;
+        const priceMatches = bothPriceZero || priceDiff <= 10000;
+        
+        // Size tolerance: within 5 sqm
+        const existingTotalArea = listingByFingerprint.totalAreaSqm;
+        const incomingTotalArea = input.totalAreaSqm;
+        const existingTerraceArea = listingByFingerprint.terraceAreaSqm;
+        const incomingTerraceArea = input.terraceAreaSqm;
+
+        const totalAreaMatches =
+          existingTotalArea == null || incomingTotalArea == null
+            ? existingTotalArea == null && incomingTotalArea == null
+            : Math.abs(existingTotalArea - incomingTotalArea) <= 5;
+        
+        const livableArea1 =
+          existingTotalArea == null
+            ? null
+            : existingTotalArea - (existingTerraceArea ?? 0);
+        const livableArea2 =
+          incomingTotalArea == null
+            ? null
+            : incomingTotalArea - (incomingTerraceArea ?? 0);
+        const livableAreaMatches =
+          livableArea1 === null || livableArea2 === null
+            ? livableArea1 === livableArea2
+            : Math.abs(livableArea1 - livableArea2) <= 5;
+        
+        // Also check rooms match (important for same building)
+        const roomsMatch = listingByFingerprint.rooms === input.rooms && input.rooms !== null;
+        
+        if (priceMatches && (totalAreaMatches || livableAreaMatches) && roomsMatch) {
+          // It's the same listing from a different website - merge the sources
+          console.log(`Cross-website match found by fingerprint: price and size match, rooms match`);
+          listing = listingByFingerprint;
+        } else {
+          // Different listing with similar fingerprint
+          // Don't merge, and don't use this fingerprint (it would violate unique constraint)
+          shouldUseFingerprint = false;
+        }
+      }
+    }
+  }
+
+  // Fallback 3: Match by building + area + rooms (when reference code and fingerprint don't match)
+  // This is useful for listings with price = 0 or missing reference codes
+  if (!listing && input.buildingName && input.totalAreaSqm && input.rooms) {
+    const whereClause: any = {
+      buildingName: input.buildingName,
+      rooms: input.rooms,
+      totalAreaSqm: {
+        gte: input.totalAreaSqm - 5,
+        lte: input.totalAreaSqm + 5,
+      },
+    };
+    
+    // Only filter by district if it's provided
+    if (input.district) {
+      whereClause.district = input.district;
+    }
+    
+    const candidates = await prisma.listing.findMany({
+      where: whereClause,
+      include: {
+        listingSources: true,
+      },
+    });
+
+    // Check each candidate for a good match
+    for (const candidate of candidates) {
+      // Skip if already has this URL ID (would have been found earlier)
+      const hasThisUrlId = candidate.listingSources.some(
+        (s) => s.sourceWebsiteId === sourceWebsite.id && s.sourceListingId === input.sourceListingId
+      );
+      if (hasThisUrlId) continue;
+
+      // Verify match: price and area must match closely
+      const priceDiff = Math.abs(candidate.priceMonthlyCents - input.priceMonthlyCents);
+      const bothPriceZero = candidate.priceMonthlyCents === 0 && input.priceMonthlyCents === 0;
+      const priceMatches = bothPriceZero || priceDiff <= 10000;
+
+      const areaDiff = candidate.totalAreaSqm && input.totalAreaSqm
+        ? Math.abs(candidate.totalAreaSqm - input.totalAreaSqm)
+        : null;
+      const areaMatches = areaDiff !== null && areaDiff <= 5;
+
+      // Also check terrace area if both have it
+      const terraceDiff = candidate.terraceAreaSqm && input.terraceAreaSqm
+        ? Math.abs(candidate.terraceAreaSqm - input.terraceAreaSqm)
+        : null;
+      const terraceMatches = terraceDiff === null || terraceDiff <= 5;
+
+      if (priceMatches && areaMatches && terraceMatches) {
+        console.log(`Cross-website match found by building + area + rooms: ${input.buildingName}, ${input.totalAreaSqm} sqm, ${input.rooms} rooms`);
+        listing = candidate;
+        break;
       }
     }
   }

@@ -14,7 +14,8 @@
     "prisma:migrate": "prisma migrate deploy",
     "prisma:reset": "prisma migrate reset --force",
     "prisma:status": "prisma migrate status",
-    "seed:websites": "node -r ts-node/register src/maintenance/seed-source-websites.ts"
+    "seed:websites": "node -r ts-node/register src/maintenance/seed-source-websites.ts",
+    "find-duplicates": "node -r ts-node/register src/maintenance/find-duplicates.ts"
   },
   "keywords": [],
   "author": "",
