@@ -78,7 +78,7 @@ export function parseCimListing(html: string, url: string): ParsedCimListing {
       .trim() || "Listing";
 
   // External ID (RIF reference code)
-  // Look for "rif" or "rif:" followed by the reference code (e.g., "rif LMP-LMC-H0010")
+  // Look for "rif" or "rif:" followed by the reference code (e.g., "rif LMP-LMC-H0010" or "rif WL Villa Antoinette")
   // Search in multiple places: specific ref element, then body text
   let refText = $(".zoomlibri .ref").text() || "";
   if (!refText) {
@@ -86,8 +86,14 @@ export function parseCimListing(html: string, url: string): ParsedCimListing {
     refText = $("section.produit").text() || $("body").text();
   }
   // Match "rif" or "rif:" (case-insensitive) followed by optional space/colon and the reference code
-  // Reference codes are typically uppercase letters, numbers, and hyphens (e.g., LMP-LMC-H0010)
-  const refMatch = refText.match(/rif[:\s]+([A-Z0-9\-]+)/i);
+  // Reference codes can contain letters, numbers, hyphens, underscores, and spaces
+  // Capture until we hit a newline, period, or specific section markers (like "Specificazioni")
+  // First try: match until newline or period (most common case)
+  let refMatch = refText.match(/rif[:\s]+([^\n\.]+)/i);
+  if (!refMatch) {
+    // Fallback: match until specific section markers
+    refMatch = refText.match(/rif[:\s]+(.+?)(?:\s*(?:Specificazioni|L'affitto|Tipologia|$))/i);
+  }
   const externalId = refMatch ? refMatch[1].trim().toUpperCase() : null;
 
   // Caracs block
