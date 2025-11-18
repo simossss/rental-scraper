@@ -74,12 +74,12 @@ export async function sendNewListingNotification(
   }
 ): Promise<boolean> {
   const price = listing.priceMonthlyCents / 100;
-  const priceText = price > 0 ? `€${price.toLocaleString()}/mois` : 'Prix sur demande';
-  const roomsText = listing.rooms ? `${listing.rooms} pièce${listing.rooms > 1 ? 's' : ''}` : '? pièces';
+  const priceText = price > 0 ? `€${price.toLocaleString()}/month` : 'Price on request';
+  const roomsText = listing.rooms ? `${listing.rooms} room${listing.rooms > 1 ? 's' : ''}` : '? rooms';
   const location = [listing.buildingName, listing.district].filter(Boolean).join(', ') || 'Monaco';
   
   const message = `
-🏠 <b>Nouvelle annonce</b>
+🏠 <b>New Listing</b>
 
 <b>${listing.title}</b>
 
@@ -88,7 +88,7 @@ export async function sendNewListingNotification(
 💰 ${priceText}
 ⭐ Score: <b>${listing.score ?? 'N/A'}</b>
 
-<a href="${listing.url}">Voir l'annonce</a>
+<a href="${listing.url}">View listing</a>
   `.trim();
 
   return sendTelegramMessage(message);
@@ -105,11 +105,11 @@ export async function sendDailySummary(
   
   if (total === 0) {
     const message = `
-📅 <b>Résumé quotidien</b>
+📅 <b>Daily Summary</b>
 
 📆 ${date}
 
-Aucune nouvelle annonce aujourd'hui.
+No new listings today.
     `.trim();
     return sendTelegramMessage(message);
   }
@@ -118,20 +118,20 @@ Aucune nouvelle annonce aujourd'hui.
   const roomGroups: string[] = [];
   for (const group of byRooms) {
     if (group.rooms === null) {
-      roomGroups.push(`   • Non spécifié: <b>${group.count}</b>`);
+      roomGroups.push(`   • Not specified: <b>${group.count}</b>`);
     } else if (group.rooms >= 5) {
-      roomGroups.push(`   • 5+ pièces: <b>${group.count}</b>`);
+      roomGroups.push(`   • 5+ rooms: <b>${group.count}</b>`);
     } else {
-      roomGroups.push(`   • ${group.rooms} pièce${group.rooms > 1 ? 's' : ''}: <b>${group.count}</b>`);
+      roomGroups.push(`   • ${group.rooms} room${group.rooms > 1 ? 's' : ''}: <b>${group.count}</b>`);
     }
   }
   
   const message = `
-📅 <b>Résumé quotidien</b>
+📅 <b>Daily Summary</b>
 
 📆 ${date}
 
-📊 <b>Total nouvelles annonces: ${total}</b>
+📊 <b>Total new listings: ${total}</b>
 
 ${roomGroups.join('\n')}
   `.trim();

@@ -98,25 +98,25 @@ Or use the test script:
 The daily summary notification will look like this:
 
 ```
-📅 Résumé quotidien
+📅 Daily Summary
 
 📆 16/11/2025
 
-📊 Total nouvelles annonces: 12
+📊 Total new listings: 12
 
-   • 2 pièces: 5
-   • 3 pièces: 4
-   • 4 pièces: 2
-   • 5+ pièces: 1
+   • 2 rooms: 5
+   • 3 rooms: 4
+   • 4 rooms: 2
+   • 5+ rooms: 1
 ```
 
 If no new listings were found today:
 
 ```
-📅 Résumé quotidien
+📅 Daily Summary
 
 📆 16/11/2025
 
-Aucune nouvelle annonce aujourd'hui.
+No new listings today.
 ```
 
