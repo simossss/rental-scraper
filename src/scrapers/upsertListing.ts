@@ -61,6 +61,7 @@ export type UpsertResult = {
   listingId: string;
   listingSourceId: string;
   createdNewListing: boolean;
+  score: number | null;
 };
 
 export async function upsertParsedListing(input: ParsedListingInput): Promise<UpsertResult> {
@@ -132,14 +133,28 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
         const priceMatches = priceDiff <= 10000;
         
         // Size tolerance: within 5 sqm
-        const totalAreaMatches = 
-          listingByRif.totalAreaSqm === null || input.totalAreaSqm === null
-            ? false // If either is null, require exact match (both null)
-            : Math.abs(listingByRif.totalAreaSqm - input.totalAreaSqm) <= 5;
+        const existingTotalArea = listingByRif.totalAreaSqm;
+        const incomingTotalArea = input.totalAreaSqm;
+        const existingTerraceArea = listingByRif.terraceAreaSqm;
+        const incomingTerraceArea = input.terraceAreaSqm;
+
+        const totalAreaMatches =
+          existingTotalArea == null || incomingTotalArea == null
+            ? existingTotalArea == null && incomingTotalArea == null
+            : Math.abs(existingTotalArea - incomingTotalArea) <= 5;
         
-        const livableArea1 = (listingByRif.totalAreaSqm || 0) - (listingByRif.terraceAreaSqm || 0);
-        const livableArea2 = (input.totalAreaSqm || 0) - (input.terraceAreaSqm || 0);
-        const livableAreaMatches = Math.abs(livableArea1 - livableArea2) <= 5;
+        const livableArea1 =
+          existingTotalArea == null
+            ? null
+            : existingTotalArea - (existingTerraceArea ?? 0);
+        const livableArea2 =
+          incomingTotalArea == null
+            ? null
+            : incomingTotalArea - (incomingTerraceArea ?? 0);
+        const livableAreaMatches =
+          livableArea1 === null || livableArea2 === null
+            ? livableArea1 === livableArea2
+            : Math.abs(livableArea1 - livableArea2) <= 5;
         
         if (priceMatches && (totalAreaMatches || livableAreaMatches)) {
           // It's the same listing from a different website - merge the sources
