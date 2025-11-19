@@ -79,22 +79,46 @@ export function parseCimListing(html: string, url: string): ParsedCimListing {
 
   // External ID (RIF reference code)
   // Look for "rif" or "rif:" followed by the reference code (e.g., "rif LMP-LMC-H0010" or "rif WL Villa Antoinette")
-  // Search in multiple places: specific ref element, then body text
-  let refText = $(".zoomlibri .ref").text() || "";
-  if (!refText) {
-    // Also check in the main content area
-    refText = $("section.produit").text() || $("body").text();
-  }
-  // Match "rif" or "rif:" (case-insensitive) followed by optional space/colon and the reference code
-  // Reference codes can contain letters, numbers, hyphens, underscores, and spaces
-  // Capture until we hit a newline, period, or specific section markers (like "Specificazioni")
-  // First try: match until newline or period (most common case)
-  let refMatch = refText.match(/rif[:\s]+([^\n\.]+)/i);
+  // Search in HTML directly to handle cases where ref spans multiple elements or has HTML tags
+  
+  let externalId: string | null = null;
+  
+  // Get HTML content and normalize whitespace
+  const htmlContent = $.html();
+  
+  // Remove HTML tags but preserve text, then normalize whitespace
+  // This handles cases where "rif" and the code might be in different HTML elements
+  const textWithSpaces = htmlContent
+    .replace(/<[^>]+>/g, ' ')  // Replace HTML tags with spaces
+    .replace(/\s+/g, ' ')       // Normalize all whitespace to single spaces
+    .trim();
+  
+  // Match "rif" followed by the reference code until we hit a section marker
+  // This pattern captures everything after "rif" until Specificazioni, L'affitto, etc.
+  let refMatch = textWithSpaces.match(/rif[:\s]+(.+?)(?:\s+(?:Specificazioni|L'affitto|Tipologia|Descrizione|Caratteristiche|Galleria|$))/i);
+  
+  // If that doesn't work, try matching until end of line or clear boundary
   if (!refMatch) {
-    // Fallback: match until specific section markers
-    refMatch = refText.match(/rif[:\s]+(.+?)(?:\s*(?:Specificazioni|L'affitto|Tipologia|$))/i);
+    refMatch = textWithSpaces.match(/rif[:\s]+([A-Z0-9\s\-_]+?)(?:\s*$|\s*\n|\s*<)/i);
   }
-  const externalId = refMatch ? refMatch[1].trim().toUpperCase() : null;
+  
+  // Last resort: match alphanumeric, spaces, hyphens, underscores (greedy but stop at common boundaries)
+  if (!refMatch) {
+    refMatch = textWithSpaces.match(/rif[:\s]+([A-Z0-9\s\-_]{2,50})/i);
+  }
+  
+  if (refMatch) {
+    externalId = refMatch[1].trim().toUpperCase();
+    
+    // Clean up: remove any remaining HTML entities or special chars
+    externalId = externalId.replace(/&[^;]+;/g, '').replace(/[^\w\s\-_]/g, '').trim();
+    
+    // Log for debugging if we got a suspiciously short reference
+    if (externalId.length < 5) {
+      console.log(`⚠️  Short reference code extracted: "${externalId}" - might be incomplete`);
+      console.log(`   Context: "${textWithSpaces.substring(Math.max(0, textWithSpaces.indexOf('rif') - 20), textWithSpaces.indexOf('rif') + 100)}"`);
+    }
+  }
 
   // Caracs block
   const caracsBlock = $(".caracs > div").first();
