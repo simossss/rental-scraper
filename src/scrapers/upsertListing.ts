@@ -111,6 +111,7 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
   // Fallback 1: Try by normalized reference code (RIF)
   // This can match listings from OTHER websites (cross-website deduplication)
   if (!listing && normalizedRef) {
+    console.log(`Looking for existing listing by reference code: ${normalizedRef}`);
     // First try exact match
     let listingByRif = await prisma.listing.findUnique({
       where: { referenceCodeNormalized: normalizedRef },
@@ -118,6 +119,31 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
         listingSources: true,
       },
     });
+    
+    // If no exact match, try case-insensitive search (in case normalization missed something)
+    if (!listingByRif) {
+      const allListings = await prisma.listing.findMany({
+        where: {
+          referenceCodeNormalized: {
+            not: null,
+          },
+        },
+        include: {
+          listingSources: true,
+        },
+      });
+      
+      // Find listings with same normalized reference (case-insensitive, handle minor variations)
+      const normalizedRefUpper = normalizedRef.toUpperCase().trim();
+      listingByRif = allListings.find(
+        (l) => l.referenceCodeNormalized && 
+               l.referenceCodeNormalized.toUpperCase().trim() === normalizedRefUpper
+      ) || null;
+      
+      if (listingByRif) {
+        console.log(`Found listing by case-insensitive reference match: ${listingByRif.referenceCodeNormalized} matches ${normalizedRef}`);
+      }
+    }
     
     // If no exact match, try fuzzy matching (for cases like "ACL_2P_CHATEAU_AZUR_9" vs "ACL_2P_CHATEAU_AZUR")
     if (!listingByRif) {
@@ -239,11 +265,18 @@ export async function upsertParsedListing(input: ParsedListingInput): Promise<Up
         
         if (priceMatches && (totalAreaMatches || livableAreaMatches)) {
           // It's the same listing from a different website - merge the sources
-          console.log(`Cross-website match found by reference code (fuzzy): ${normalizedRef} -> ${listingByRif.referenceCodeNormalized}, price and size match`);
+          console.log(`✅ Cross-website match found by reference code: ${normalizedRef} -> ${listingByRif.referenceCodeNormalized}`);
+          console.log(`   Price match: ${priceMatches} (existing: ${listingByRif.priceMonthlyCents}, incoming: ${input.priceMonthlyCents})`);
+          console.log(`   Total area match: ${totalAreaMatches} (existing: ${listingByRif.totalAreaSqm}, incoming: ${input.totalAreaSqm})`);
+          console.log(`   Livable area match: ${livableAreaMatches}`);
           listing = listingByRif;
         } else {
           // Different listing with same/similar reference code (rare but possible)
           // Don't merge, and don't use this RIF code (would violate unique constraint)
+          console.log(`⚠️  Reference code match found but verification failed: ${normalizedRef} -> ${listingByRif.referenceCodeNormalized}`);
+          console.log(`   Price match: ${priceMatches} (existing: ${listingByRif.priceMonthlyCents}, incoming: ${input.priceMonthlyCents})`);
+          console.log(`   Total area match: ${totalAreaMatches} (existing: ${listingByRif.totalAreaSqm}, incoming: ${input.totalAreaSqm})`);
+          console.log(`   Livable area match: ${livableAreaMatches}`);
           shouldUseRifCode = false;
         }
       }

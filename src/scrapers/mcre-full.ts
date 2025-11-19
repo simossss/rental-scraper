@@ -21,23 +21,34 @@ function extractListingUrlsFromPage($: cheerio.CheerioAPI): string[] {
     const href = $(el).attr("href");
     if (!href) return;
     
-    // Skip if it's in navigation, footer, or similar properties sections
-    const $el = $(el);
-    const isInNav = $el.closest('nav, header, footer, .navigation, .menu, .similar-properties, .related-properties').length > 0;
-    if (isInNav) return;
-    
     // Only include URLs that match the property listing pattern: /en/properties/mc-tc-XXX-XXXXX
-    // Pattern: /properties/ followed by alphanumeric-dash pattern
+    // Pattern: /properties/ followed by alphanumeric-dash pattern (e.g., mc-tc-155-32201)
     if (!/\/properties\/[^\/\?]+/.test(href)) return;
+    
+    // Skip if it's clearly in navigation menu (not listing cards)
+    // Be less aggressive - only skip if it's in a main nav menu, not listing cards
+    const $el = $(el);
+    const isInMainNav = $el.closest('nav.main, nav.navigation, header nav, .main-menu, .site-nav').length > 0;
+    if (isInMainNav) return;
+    
+    // Skip "similar properties" or "related properties" sections (these are on detail pages, not listing pages)
+    const isInSimilar = $el.closest('.similar-properties, .related-properties, .other-properties').length > 0;
+    if (isInSimilar) return;
     
     // Build full URL
     let fullUrl = href.startsWith("http") ? href : BASE_HOST + href;
     
     // Remove query parameters and fragments to normalize URLs
-    const urlObj = new URL(fullUrl);
-    urlObj.search = '';
-    urlObj.hash = '';
-    fullUrl = urlObj.toString();
+    try {
+      const urlObj = new URL(fullUrl);
+      urlObj.search = '';
+      urlObj.hash = '';
+      fullUrl = urlObj.toString();
+    } catch (e) {
+      // If URL parsing fails, skip this URL
+      console.warn(`Failed to parse URL: ${fullUrl}`, e);
+      return;
+    }
     
     urls.add(fullUrl);
   });
@@ -123,8 +134,12 @@ export async function collectAllMcreListingUrls(): Promise<string[]> {
   // This ensures we don't miss listings even if pagination detection is imperfect
   let consecutiveEmptyPages = 0;
   const maxConsecutiveEmpty = 2; // Stop after 2 consecutive empty pages
+  const maxPagesToCheck = 100; // Absolute maximum pages to check (safety limit)
   
-  for (let page = 2; page <= totalPages; page++) {
+  // Continue beyond detected pages if we're still finding listings
+  const actualMaxPages = Math.max(totalPages, 20); // At least check 20 pages
+  
+  for (let page = 2; page <= Math.min(actualMaxPages, maxPagesToCheck); page++) {
     try {
       const { $ } = await fetchListingsPage(page);
       const pageUrls = extractListingUrlsFromPage($);
@@ -148,6 +163,11 @@ export async function collectAllMcreListingUrls(): Promise<string[]> {
       // If we got significantly fewer URLs than expected, might be approaching last page
       if (pageUrls.length < urlsPage1.length * 0.3) {
         console.log(`Page ${page}: Significantly fewer listings (${pageUrls.length} vs ${urlsPage1.length}), might be approaching last page`);
+      }
+      
+      // If we're beyond detected pages but still finding listings, continue
+      if (page > totalPages && pageUrls.length > 0) {
+        console.log(`Page ${page}: Found listings beyond detected page count (${totalPages}), continuing...`);
       }
     } catch (err: any) {
       consecutiveEmptyPages++;
