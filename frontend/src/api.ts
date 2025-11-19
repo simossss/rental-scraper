@@ -57,15 +57,22 @@ export async function fetchDistricts(): Promise<string[]> {
   // Fetch all listings to extract unique districts
   const response = await fetch(`${API_BASE_URL}/listings?take=1000`);
   const data = await response.json();
-  const districts = new Set<string>();
+  
+  // Use a Map to deduplicate case-insensitively, keeping the first occurrence
+  const districtsMap = new Map<string, string>();
   
   data.items.forEach((listing: any) => {
     if (listing.district) {
-      districts.add(listing.district);
+      const lowerKey = listing.district.toLowerCase();
+      // Only add if we haven't seen this district (case-insensitive) before
+      if (!districtsMap.has(lowerKey)) {
+        districtsMap.set(lowerKey, listing.district);
+      }
     }
   });
   
-  return Array.from(districts).sort();
+  // Return the original district names (not lowercased), sorted
+  return Array.from(districtsMap.values()).sort();
 }
 
 export async function fetchBuildings(): Promise<string[]> {

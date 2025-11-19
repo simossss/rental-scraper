@@ -31,8 +31,12 @@ export function FilterDrawer({ isOpen, onClose, filters, onFiltersChange }: Filt
   };
 
   const toggleDistrict = (district: string) => {
-    const newDistricts = filters.districts.includes(district)
-      ? filters.districts.filter(d => d !== district)
+    // Case-insensitive check: see if any selected district matches (case-insensitive)
+    const districtLower = district.toLowerCase();
+    const isSelected = filters.districts.some(d => d.toLowerCase() === districtLower);
+    
+    const newDistricts = isSelected
+      ? filters.districts.filter(d => d.toLowerCase() !== districtLower)
       : [...filters.districts, district];
     updateFilter('districts', newDistricts);
   };
@@ -211,7 +215,9 @@ export function FilterDrawer({ isOpen, onClose, filters, onFiltersChange }: Filt
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {districts.map((district) => {
-                    const isSelected = filters.districts.includes(district);
+                    // Case-insensitive check for selection
+                    const districtLower = district.toLowerCase();
+                    const isSelected = filters.districts.some(d => d.toLowerCase() === districtLower);
                     return (
                       <button
                         key={district}

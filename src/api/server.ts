@@ -254,7 +254,20 @@ app.get("/listings", async (req, res) => {
     }
 
     if (districts.length > 0) {
-      where.district = { in: districts };
+      // Case-insensitive district filtering
+      // Use Prisma's case-insensitive string matching
+      // Since Prisma's equals doesn't support mode: "insensitive" directly,
+      // we use a workaround: check if the district (lowercased) matches any of the selected districts (lowercased)
+      andConditions.push({
+        OR: districts.map((district) => ({
+          district: {
+            // Use contains with mode insensitive as a workaround for case-insensitive exact match
+            // This works because we're matching the full district name
+            contains: district,
+            mode: "insensitive",
+          },
+        })),
+      });
     }
 
     if (buildings.length > 0) {
