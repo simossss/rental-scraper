@@ -52,6 +52,8 @@ export function FilterDrawer({ isOpen, onClose, filters, onFiltersChange }: Filt
     onFiltersChange({
       minRent: null,
       maxRent: 12000,
+      minArea: null,
+      maxArea: null,
       districts: [],
       buildings: [],
       hasParking: null,
@@ -65,6 +67,8 @@ export function FilterDrawer({ isOpen, onClose, filters, onFiltersChange }: Filt
   const hasActiveFilters = 
     filters.minRent !== null ||
     (filters.maxRent !== null && filters.maxRent !== 12000) ||
+    filters.minArea !== null ||
+    filters.maxArea !== null ||
     filters.districts.length > 0 ||
     filters.buildings.length > 0 ||
     filters.hasParking !== null ||
@@ -138,6 +142,36 @@ export function FilterDrawer({ isOpen, onClose, filters, onFiltersChange }: Filt
                     placeholder="No limit"
                     value={filters.maxRent ?? ''}
                     onChange={(e) => updateFilter('maxRent', e.target.value ? Number(e.target.value) : null)}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all bg-white text-slate-900 font-medium"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Area Range */}
+            <div>
+              <label className="block text-sm font-bold text-slate-900 mb-4">
+                Living Area
+                <span className="text-xs font-normal text-slate-500 ml-1">(m²)</span>
+              </label>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-2">Minimum</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={filters.minArea ?? ''}
+                    onChange={(e) => updateFilter('minArea', e.target.value ? Number(e.target.value) : null)}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all bg-white text-slate-900 font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-2">Maximum</label>
+                  <input
+                    type="number"
+                    placeholder="No limit"
+                    value={filters.maxArea ?? ''}
+                    onChange={(e) => updateFilter('maxArea', e.target.value ? Number(e.target.value) : null)}
                     className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all bg-white text-slate-900 font-medium"
                   />
                 </div>

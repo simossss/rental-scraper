@@ -18,6 +18,12 @@ export async function fetchListings(
   if (filters.maxRent !== null) {
     params.append('maxRent', filters.maxRent.toString());
   }
+  if (filters.minArea !== null) {
+    params.append('minArea', filters.minArea.toString());
+  }
+  if (filters.maxArea !== null) {
+    params.append('maxArea', filters.maxArea.toString());
+  }
   if (filters.districts.length > 0) {
     params.append('districts', filters.districts.join(','));
   }

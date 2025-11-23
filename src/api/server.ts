@@ -121,6 +121,7 @@ app.post("/daily-summary", async (req, res) => {
  *
  * Query params:
  * - minRent, maxRent      -> in EUR (float or int); converted to cents
+ * - minArea, maxArea      -> in sqm (float or int); living area only
  * - districts             -> comma separated list of district names (exact match)
  * - buildings             -> comma separated list of building names (contains, case-insensitive)
  * - hasParking            -> "true" | "false"
@@ -130,7 +131,7 @@ app.post("/daily-summary", async (req, res) => {
  * - excludeLaw887         -> "true" to exclude listings with "887" in the title
  * - take                  -> page size, default 50
  * - skip                  -> offset, default 0
- * - orderBy               -> "priceAsc" | "priceDesc" | "createdDesc" | "createdAsc" | "scoreDesc"
+ * - orderBy               -> "priceAsc" | "priceDesc" | "createdDesc" | "createdAsc" | "scoreDesc" | "areaAsc" | "areaDesc" | "pricePerSqmAsc" | "pricePerSqmDesc"
  */
 app.get("/listings", async (req, res) => {
   try {
@@ -204,6 +205,14 @@ app.get("/listings", async (req, res) => {
     const excludeLaw887Raw = req.query.excludeLaw887 as string | undefined;
     const excludeLaw887 = excludeLaw887Raw === "true";
 
+    // area range in sqm (living area only)
+    const minArea = req.query.minArea
+      ? Number(req.query.minArea)
+      : undefined;
+    const maxArea = req.query.maxArea
+      ? Number(req.query.maxArea)
+      : undefined;
+
     // pagination
     const take = req.query.take ? Number(req.query.take) : 50;
     const skip = req.query.skip ? Number(req.query.skip) : 0;
@@ -211,6 +220,7 @@ app.get("/listings", async (req, res) => {
     // sorting
     const orderByParam = (req.query.orderBy as string | undefined) || "priceAsc";
     let orderBy: any = { priceMonthlyCents: "asc" as const };
+    let needsPricePerSqmSort = false;
 
     if (orderByParam === "priceDesc") {
       orderBy = { priceMonthlyCents: "desc" };
@@ -220,6 +230,14 @@ app.get("/listings", async (req, res) => {
       orderBy = { createdAt: "asc" };
     } else if (orderByParam === "scoreDesc") {
       orderBy = { score: "desc" };
+    } else if (orderByParam === "areaAsc") {
+      orderBy = { livingAreaSqm: "asc" };
+    } else if (orderByParam === "areaDesc") {
+      orderBy = { livingAreaSqm: "desc" };
+    } else if (orderByParam === "pricePerSqmAsc" || orderByParam === "pricePerSqmDesc") {
+      // Price per sqm requires custom sorting (computed field)
+      needsPricePerSqmSort = true;
+      orderBy = { priceMonthlyCents: "asc" }; // Temporary, will be overridden
     }
 
     // ------- build Prisma "where" -------
@@ -293,6 +311,20 @@ app.get("/listings", async (req, res) => {
       where.score = { gte: minScore };
     }
 
+    // area filter: living area only
+    if (minArea !== undefined || maxArea !== undefined) {
+      const areaFilter: any = {};
+      if (minArea !== undefined && !Number.isNaN(minArea)) {
+        areaFilter.gte = minArea;
+      }
+      if (maxArea !== undefined && !Number.isNaN(maxArea)) {
+        areaFilter.lte = maxArea;
+      }
+      if (Object.keys(areaFilter).length > 0) {
+        andConditions.push({ livingAreaSqm: areaFilter });
+      }
+    }
+
     // rooms filter: handle 2, 3, 4, and 5+ (where 5+ means >= 5)
     if (rooms.length > 0) {
       const roomConditions: any[] = [];
@@ -332,34 +364,98 @@ app.get("/listings", async (req, res) => {
 
     // ------- query DB -------
 
-    const [items, total] = await Promise.all([
-      prisma.listing.findMany({
+    // For price per sqm sorting, we need to fetch all matching items, calculate, sort, then paginate
+    if (needsPricePerSqmSort) {
+      const allItems = await prisma.listing.findMany({
         where,
-        orderBy,
+      });
+
+      // Calculate price per sqm for each listing
+      const itemsWithPricePerSqm = allItems.map((item) => {
+        const livingArea = item.livingAreaSqm ?? 
+          (item.totalAreaSqm && item.terraceAreaSqm 
+            ? Math.max(0, item.totalAreaSqm - item.terraceAreaSqm)
+            : item.totalAreaSqm);
+        
+        const priceEur = item.priceMonthlyCents / 100;
+        const pricePerSqm = livingArea && livingArea > 0 && priceEur > 0
+          ? priceEur / livingArea
+          : null;
+
+        return {
+          ...item,
+          _pricePerSqm: pricePerSqm ?? Infinity, // Use Infinity for nulls so they sort last
+        };
+      });
+
+      // Sort by price per sqm
+      const sortDirection = orderByParam === "pricePerSqmAsc" ? 1 : -1;
+      itemsWithPricePerSqm.sort((a, b) => {
+        if (a._pricePerSqm === Infinity && b._pricePerSqm === Infinity) return 0;
+        if (a._pricePerSqm === Infinity) return 1;
+        if (b._pricePerSqm === Infinity) return -1;
+        return (a._pricePerSqm - b._pricePerSqm) * sortDirection;
+      });
+
+      // Remove the temporary field and paginate
+      const total = itemsWithPricePerSqm.length;
+      const items = itemsWithPricePerSqm
+        .slice(skip, skip + take)
+        .map(({ _pricePerSqm, ...item }) => item);
+
+      res.json({
+        total,
         take,
         skip,
-      }),
-      prisma.listing.count({ where }),
-    ]);
+        orderBy: orderByParam,
+        filters: {
+          minRentEur: minRentEur ?? null,
+          maxRentEur: maxRentEur ?? null,
+          minArea: minArea ?? null,
+          maxArea: maxArea ?? null,
+          districts,
+          buildings,
+          hasParking,
+          minScore: minScore ?? null,
+          rooms,
+          showZeroPrice,
+          excludeLaw887,
+        },
+        items,
+      });
+    } else {
+      // Standard query for other sort options
+      const [items, total] = await Promise.all([
+        prisma.listing.findMany({
+          where,
+          orderBy,
+          take,
+          skip,
+        }),
+        prisma.listing.count({ where }),
+      ]);
 
-    res.json({
-      total,
-      take,
-      skip,
-      orderBy: orderByParam,
-      filters: {
-        minRentEur: minRentEur ?? null,
-        maxRentEur: maxRentEur ?? null,
-        districts,
-        buildings,
-        hasParking,
-        minScore: minScore ?? null,
-        rooms,
-        showZeroPrice,
-        excludeLaw887,
-      },
-      items,
-    });
+      res.json({
+        total,
+        take,
+        skip,
+        orderBy: orderByParam,
+        filters: {
+          minRentEur: minRentEur ?? null,
+          maxRentEur: maxRentEur ?? null,
+          minArea: minArea ?? null,
+          maxArea: maxArea ?? null,
+          districts,
+          buildings,
+          hasParking,
+          minScore: minScore ?? null,
+          rooms,
+          showZeroPrice,
+          excludeLaw887,
+        },
+        items,
+      });
+    }
   } catch (err: any) {
     console.error("Error in GET /listings:", err);
     res.status(500).json({ error: err?.message || "Internal error" });

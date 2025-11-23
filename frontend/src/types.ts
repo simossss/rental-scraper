@@ -48,6 +48,8 @@ export interface ListingsResponse {
 export interface Filters {
   minRent: number | null;
   maxRent: number | null;
+  minArea: number | null;
+  maxArea: number | null;
   districts: string[];
   buildings: string[];
   hasParking: boolean | null;
@@ -57,5 +59,5 @@ export interface Filters {
   excludeLaw887: boolean; // Exclude listings with "887" in the title
 }
 
-export type SortOption = 'scoreDesc' | 'priceAsc' | 'priceDesc' | 'createdDesc';
+export type SortOption = 'scoreDesc' | 'priceAsc' | 'priceDesc' | 'createdDesc' | 'areaAsc' | 'areaDesc' | 'pricePerSqmAsc' | 'pricePerSqmDesc';
 

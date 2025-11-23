@@ -16,6 +16,8 @@ function App() {
   const [filters, setFilters] = useState<Filters>({
     minRent: null,
     maxRent: 12000,
+    minArea: null,
+    maxArea: null,
     districts: [],
     buildings: [],
     hasParking: null,
@@ -68,6 +70,10 @@ function App() {
     { value: 'scoreDesc', label: 'Score' },
     { value: 'priceAsc', label: 'Price ↑' },
     { value: 'priceDesc', label: 'Price ↓' },
+    { value: 'areaAsc', label: 'Size ↑' },
+    { value: 'areaDesc', label: 'Size ↓' },
+    { value: 'pricePerSqmAsc', label: '€/m² ↑' },
+    { value: 'pricePerSqmDesc', label: '€/m² ↓' },
     { value: 'createdDesc', label: 'Newest' },
   ];
 

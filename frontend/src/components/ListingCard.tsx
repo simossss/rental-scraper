@@ -28,7 +28,7 @@ function formatDaysOnMarket(days: number): string {
 }
 
 export function ListingCard({ listing }: ListingCardProps) {
-  const priceEur = (listing.priceMonthlyCents / 100).toLocaleString('fr-FR', {
+  const priceEurFormatted = (listing.priceMonthlyCents / 100).toLocaleString('fr-FR', {
     style: 'currency',
     currency: 'EUR',
     maximumFractionDigits: 0,
@@ -45,6 +45,12 @@ export function ListingCard({ listing }: ListingCardProps) {
       : listing.totalAreaSqm);
   
   const area = livableArea;
+  
+  // Calculate price per sqm
+  const priceEur = listing.priceMonthlyCents / 100;
+  const pricePerSqm = livableArea && livableArea > 0 && priceEur > 0
+    ? priceEur / livableArea
+    : null;
   
   const getScoreColor = (score: number | null) => {
     if (score === null) return 'bg-slate-200 text-slate-600';
@@ -121,12 +127,19 @@ export function ListingCard({ listing }: ListingCardProps) {
         {/* Price & Days on Market */}
         <div className="mb-4 pb-4 border-b border-slate-100">
           <div className="flex items-baseline justify-between mb-1">
-            <div className="text-3xl font-bold text-slate-900 tracking-tight">{priceEur}</div>
+            <div className="text-3xl font-bold text-slate-900 tracking-tight">{priceEurFormatted}</div>
             <div className="text-xs font-medium text-slate-500 bg-slate-50 px-2 py-1 rounded-md">
               {formatDaysOnMarket(daysOnMarket)}
             </div>
           </div>
-          <div className="text-xs text-slate-500 font-medium">per month</div>
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-slate-500 font-medium">per month</div>
+            {pricePerSqm !== null && (
+              <div className="text-xs text-slate-600 font-semibold bg-slate-50 px-2 py-0.5 rounded">
+                €{pricePerSqm.toFixed(0)}/m²
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Details Grid */}
