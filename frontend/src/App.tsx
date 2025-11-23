@@ -66,15 +66,69 @@ function App() {
     }
   };
 
-  const sortOptions: { value: SortOption; label: string }[] = [
-    { value: 'scoreDesc', label: 'Score' },
-    { value: 'priceAsc', label: 'Price ↑' },
-    { value: 'priceDesc', label: 'Price ↓' },
-    { value: 'areaAsc', label: 'Size ↑' },
-    { value: 'areaDesc', label: 'Size ↓' },
-    { value: 'pricePerSqmAsc', label: '€/m² ↑' },
-    { value: 'pricePerSqmDesc', label: '€/m² ↓' },
-    { value: 'createdDesc', label: 'Newest' },
+  const handleSortClick = (baseType: 'price' | 'area' | 'pricePerSqm' | 'score' | 'created') => {
+    if (baseType === 'score') {
+      setSortBy('scoreDesc');
+    } else if (baseType === 'created') {
+      setSortBy('createdDesc');
+    } else {
+      // For price, area, and pricePerSqm, toggle between asc/desc
+      const currentAsc = `${baseType}Asc` as SortOption;
+      const currentDesc = `${baseType}Desc` as SortOption;
+      
+      if (sortBy === currentAsc) {
+        setSortBy(currentDesc);
+      } else if (sortBy === currentDesc) {
+        setSortBy(currentAsc);
+      } else {
+        // Default to ascending for new selection
+        setSortBy(currentAsc);
+      }
+    }
+  };
+
+  const getSortLabel = (baseType: 'price' | 'area' | 'pricePerSqm' | 'score' | 'created'): string => {
+    if (baseType === 'score') return 'Score';
+    if (baseType === 'created') return 'Newest';
+    
+    const currentAsc = `${baseType}Asc` as SortOption;
+    const currentDesc = `${baseType}Desc` as SortOption;
+    const isAsc = sortBy === currentAsc;
+    const isDesc = sortBy === currentDesc;
+    
+    if (baseType === 'price') {
+      if (isAsc) return 'Price ↑';
+      if (isDesc) return 'Price ↓';
+      return 'Price';
+    }
+    if (baseType === 'area') {
+      if (isAsc) return 'Size ↑';
+      if (isDesc) return 'Size ↓';
+      return 'Size';
+    }
+    if (baseType === 'pricePerSqm') {
+      if (isAsc) return '€/m² ↑';
+      if (isDesc) return '€/m² ↓';
+      return '€/m²';
+    }
+    return '';
+  };
+
+  const isSortActive = (baseType: 'price' | 'area' | 'pricePerSqm' | 'score' | 'created'): boolean => {
+    if (baseType === 'score') return sortBy === 'scoreDesc';
+    if (baseType === 'created') return sortBy === 'createdDesc';
+    
+    const currentAsc = `${baseType}Asc` as SortOption;
+    const currentDesc = `${baseType}Desc` as SortOption;
+    return sortBy === currentAsc || sortBy === currentDesc;
+  };
+
+  const sortOptions: { baseType: 'price' | 'area' | 'pricePerSqm' | 'score' | 'created' }[] = [
+    { baseType: 'score' },
+    { baseType: 'price' },
+    { baseType: 'area' },
+    { baseType: 'pricePerSqm' },
+    { baseType: 'created' },
   ];
 
   return (
@@ -142,15 +196,15 @@ function App() {
               <div className="flex gap-2">
                 {sortOptions.map((option) => (
                   <button
-                    key={option.value}
-                    onClick={() => setSortBy(option.value)}
+                    key={option.baseType}
+                    onClick={() => handleSortClick(option.baseType)}
                     className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
-                      sortBy === option.value
+                      isSortActive(option.baseType)
                         ? 'bg-primary-600 text-white shadow-soft scale-105'
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200 active:scale-95'
                     }`}
                   >
-                    {option.label}
+                    {getSortLabel(option.baseType)}
                   </button>
                 ))}
               </div>
